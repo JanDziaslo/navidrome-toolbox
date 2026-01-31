@@ -158,7 +158,7 @@ Pola:
 
 ## `POST /api/youtube/download/stream` (SSE)
 
-Endpoint do pobierania z **progresem w czasie rzeczywistym**, realizowanym przez Server‑Sent Events (`text/event-stream`). [web:177][web:189]
+Endpoint do pobierania z **progresem w czasie rzeczywistym**, realizowanym przez Server‑Sent Events (`text/event-stream`).
 
 ### Request body
 
@@ -189,7 +189,7 @@ data: {JSON}
 <blank line>
 ```
 
-co jest wymaganym formatem SSE (UTF‑8, eventy oddzielone pustą linią). [web:177][web:189][web:180]
+co jest wymaganym formatem SSE (UTF‑8, eventy oddzielone pustą linią).
 
 Przykładowy strumień (uproszczony):
 
