@@ -1,0 +1,26 @@
+[project]
+name = "navidrome-toolbox-api"
+version = "0.1.0"
+description = "Navidrome toolbox backend (FastAPI + yt-dlp + file management)"
+requires-python = ">=3.11"
+readme = "README.md"
+license = { text = "MIT" }
+keywords = ["fastapi", "navidrome", "yt-dlp", "audio", "metadata"]
+
+authors = [
+  { name = "Twoje Imię", email = "ty@example.com" }
+]
+
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "yt-dlp",
+  "mutagen",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "httpx",
+  "pytest-asyncio",
+]

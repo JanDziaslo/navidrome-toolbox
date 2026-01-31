@@ -1,0 +1,6 @@
+services:
+  backend:
+    environment:
+      - YTDLP_COOKIE_FILE=/cookies/yt-cookies.txt
+    volumes:
+      - ./cookies/yt-cookies.txt:/cookies/yt-cookies.txt:ro
