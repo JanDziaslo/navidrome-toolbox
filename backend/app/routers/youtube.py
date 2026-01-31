@@ -8,7 +8,6 @@ from app.schemas.youtube import (
     DownloadResponse,
     QualityRequest,
     QualityResponse,
-    VideoResult,
     YouTubeSearchResponse,
 )
 from app.services.youtube_service import (
@@ -53,7 +52,10 @@ async def download_video(payload: DownloadRequest):
     Zwraca tylko JSON z informacją o powodzeniu i ścieżką pliku.
     """
     try:
-        result = download(payload.url, payload.format_id, payload.output_template)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None, download, payload.url, payload.format_id, payload.output_template
+        )
         if not result.success:
             raise HTTPException(status_code=500, detail=result.message)
         return result
@@ -103,7 +105,7 @@ async def download_stream(payload: DownloadRequest):
                             {
                                 "status": "complete",
                                 "success": result.success,
-                                "file": result.file_path,
+                                "file_path": result.file_path,
                             }
                         )
                         + "\n\n"
@@ -119,7 +121,7 @@ async def download_stream(payload: DownloadRequest):
                             {
                                 "status": "complete",
                                 "success": result.success,
-                                "file": result.file_path,
+                                "file_path": result.file_path,
                             }
                         )
                         + "\n\n"
