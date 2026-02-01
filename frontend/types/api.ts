@@ -79,3 +79,30 @@ export interface BatchDownloadProgress {
   failedCount: number;
   error?: string;
 }
+
+// Files API Types
+export interface FileItem {
+  id: string;
+  path: string;
+  filename: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  year: number | null;
+  track_number: number | null;
+  genre: string | null;
+  duration: number | null;
+  bitrate: number | null;
+  format: string;
+  file_size: number;
+  has_cover: boolean;
+}
+
+export interface FilesResponse {
+  items: FileItem[];
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  search: string | null;
+}

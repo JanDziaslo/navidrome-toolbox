@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 const navItems = [
   { href: '/', label: 'Strona główna', icon: Home },
   { href: '/youtube-downloader', label: 'Pobieranie utworów', icon: Download },
-  { href: '/metadata', label: 'Edytor metadanych (Placeholder)', icon: FilePen },
+  { href: '/metadata', label: 'Edytor metadanych', icon: FilePen },
   { href: '/file-editor', label: 'Edytor plików', icon: AudioLines },
 ];
 
