@@ -6,6 +6,8 @@ import json
 from app.schemas.youtube import (
     DownloadRequest,
     DownloadResponse,
+    PlaylistRequest,
+    PlaylistResponse,
     QualityRequest,
     QualityResponse,
     YouTubeSearchResponse,
@@ -14,6 +16,8 @@ from app.services.youtube_service import (
     download,
     download_with_progress,
     get_formats,
+    get_playlist_info,
+    get_playlist_info_chunked,
     search_youtube,
 )
 
@@ -22,16 +26,45 @@ router = APIRouter()
 
 @router.get("/query", response_model=YouTubeSearchResponse)
 async def search_videos(
-    q: str = Query(..., description="Search query"),
+    q: str = Query(..., description="Search query or YouTube URL"),
     limit: int = Query(10, ge=1, le=50, description="Number of results (1-50)"),
     music_only: bool = Query(True, description="Prefer YouTube Music / topic results"),
 ):
     try:
-        results = search_youtube(q, limit, music_only)
-        return YouTubeSearchResponse(results=results, count=len(results))
+        results, is_direct_url = search_youtube(q, limit, music_only)
+        return YouTubeSearchResponse(
+            results=results, count=len(results), is_direct_url=is_direct_url
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/playlist", response_model=PlaylistResponse)
+async def get_playlist(payload: PlaylistRequest):
+    """
+    Fetch playlist information with pagination support.
+    Uses offset and limit for chunked loading with parallel processing.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Playlist request: url={payload.url}, offset={payload.offset}, limit={payload.limit}"
+    )
+
+    try:
+        # Use chunked loading with parallel processing
+        playlist_data = get_playlist_info_chunked(
+            payload.url, offset=payload.offset, limit=payload.limit
+        )
+        return PlaylistResponse(**playlist_data)
+    except ValueError as e:
+        logger.error(f"ValueError: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
