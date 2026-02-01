@@ -55,3 +55,27 @@ export interface DownloadResponse {
   file_path: string;
   message: string;
 }
+
+export interface PlaylistInfo {
+  title: string;
+  uploader: string;
+  thumbnail: string;
+  video_count: number;
+  total_count: number;
+  videos: YouTubeSearchResult[];
+  playlist_url: string;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+}
+
+export interface BatchDownloadProgress {
+  status: 'downloading' | 'complete' | 'error' | 'cancelled';
+  currentVideoIndex: number;
+  totalVideos: number;
+  currentVideoTitle: string;
+  currentVideoProgress: number;
+  completedCount: number;
+  failedCount: number;
+  error?: string;
+}

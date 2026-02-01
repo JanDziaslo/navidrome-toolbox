@@ -6,6 +6,8 @@ import json
 from app.schemas.youtube import (
     DownloadRequest,
     DownloadResponse,
+    PlaylistRequest,
+    PlaylistResponse,
     QualityRequest,
     QualityResponse,
     YouTubeSearchResponse,
@@ -14,6 +16,8 @@ from app.services.youtube_service import (
     download,
     download_with_progress,
     get_formats,
+    get_playlist_info,
+    get_playlist_info_chunked,
     search_youtube,
 )
 
@@ -34,6 +38,33 @@ async def search_videos(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/playlist", response_model=PlaylistResponse)
+async def get_playlist(payload: PlaylistRequest):
+    """
+    Fetch playlist information with pagination support.
+    Uses offset and limit for chunked loading with parallel processing.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Playlist request: url={payload.url}, offset={payload.offset}, limit={payload.limit}"
+    )
+
+    try:
+        # Use chunked loading with parallel processing
+        playlist_data = get_playlist_info_chunked(
+            payload.url, offset=payload.offset, limit=payload.limit
+        )
+        return PlaylistResponse(**playlist_data)
+    except ValueError as e:
+        logger.error(f"ValueError: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

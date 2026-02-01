@@ -1,10 +1,8 @@
-"use client";
+import type { Metadata, Viewport } from "next";
 
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Toaster } from "@/components/ui/sonner";
-import { PageTransition } from "@/components/layout/page-transition";
+import { ClientLayout } from "@/components/layout/client-layout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const metadata: Metadata = {
+  title: "Navidrome Toolbox",
+  description: "Narzędzia do zarządzania biblioteką muzyczną Navidrome",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,13 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="ml-72 flex-1 p-8">
-            <PageTransition>{children}</PageTransition>
-          </main>
-        </div>
-        <Toaster />
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );

@@ -26,6 +26,36 @@ def _is_youtube_url(query: str) -> bool:
     return bool(re.match(youtube_pattern, query))
 
 
+def _is_playlist_url(query: str) -> bool:
+    """
+    Check if the query is a YouTube playlist URL.
+    Supports: youtube.com/playlist?list=..., youtube.com/watch?v=...&list=...
+    """
+    import re
+
+    playlist_pattern = (
+        r"^(https?://)?(www\.)?(youtube\.com/.*[?&]list=|youtube\.com/playlist\?)"
+    )
+    return bool(re.match(playlist_pattern, query))
+
+
+def _extract_playlist_id(url: str) -> str | None:
+    """Extract playlist ID from URL."""
+    import re
+
+    match = re.search(r"[?&]list=([^&]+)", url)
+    return match.group(1) if match else None
+
+
+def _convert_to_playlist_url(url: str) -> str:
+    """Convert watch URL with list parameter to proper playlist URL."""
+    if _is_playlist_url(url) and "watch?" in url:
+        playlist_id = _extract_playlist_id(url)
+        if playlist_id:
+            return f"https://www.youtube.com/playlist?list={playlist_id}"
+    return url
+
+
 def _extract_single_video(entry: dict) -> VideoResult | None:
     """
     Extract a single video result from a yt-dlp entry.
@@ -135,6 +165,188 @@ def search_youtube(
     return results, is_direct_url
 
 
+def get_playlist_info(url: str) -> dict:
+    """
+    Fetch full playlist information including all videos.
+    Returns playlist metadata and list of VideoResult.
+    """
+    cookie_file = os.getenv("YTDLP_COOKIE_FILE", "")
+
+    ydl_opts: dict = {
+        "quiet": True,
+        "extract_flat": True,  # Fast extraction - only gets basic info without resolving each video
+        "skip_download": True,
+        "playlist_items": "1-100",  # Limit to first 100 items for speed
+    }
+
+    if cookie_file and Path(cookie_file).is_file():
+        ydl_opts["cookiefile"] = cookie_file
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError) as e:
+        raise Exception(f"yt-dlp error: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Network error: {str(e)}")
+
+    # Debug logging
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Playlist info keys: {list(info.keys()) if info else 'None'}")
+    logger.info(f"Is playlist? {'entries' in info if info else False}")
+    if info and "entries" in info:
+        logger.info(
+            f"Number of entries: {len(info['entries']) if info['entries'] else 0}"
+        )
+
+    # Extract playlist metadata
+    playlist_title = info.get("title", "Unknown Playlist")
+    playlist_uploader = info.get("uploader") or info.get("channel", "")
+    playlist_thumbnail = info.get("thumbnail", "")
+
+    # Extract all videos
+    entries = info.get("entries") or []
+    videos: list[VideoResult] = []
+
+    # If no entries found but we have an ID, this might be a single video
+    # Check if this is actually a playlist URL
+    if not entries and _is_playlist_url(url):
+        # Try again without extract_flat to get full playlist info
+        ydl_opts_full = {
+            "quiet": True,
+            "skip_download": True,
+        }
+        if cookie_file and Path(cookie_file).is_file():
+            ydl_opts_full["cookiefile"] = cookie_file
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts_full) as ydl_full:
+                info_full = ydl_full.extract_info(url, download=False)
+            if info_full and "entries" in info_full:
+                entries = info_full.get("entries") or []
+                playlist_title = info_full.get("title", playlist_title)
+                playlist_uploader = info_full.get("uploader") or playlist_uploader
+                playlist_thumbnail = info_full.get("thumbnail", playlist_thumbnail)
+        except Exception as e:
+            logger.error(f"Retry with full extraction failed: {e}")
+
+    for entry in entries:
+        video = _extract_single_video(entry)
+        if video:
+            videos.append(video)
+
+    return {
+        "title": playlist_title,
+        "uploader": playlist_uploader,
+        "thumbnail": playlist_thumbnail,
+        "video_count": len(videos),
+        "videos": videos,
+        "playlist_url": url,
+    }
+
+
+def get_playlist_info_chunked(url: str, offset: int = 0, limit: int = 10) -> dict:
+    """
+    Fetch playlist videos in chunks with parallel processing.
+    Returns playlist metadata and a chunk of videos starting from offset.
+    """
+    cookie_file = os.getenv("YTDLP_COOKIE_FILE", "")
+
+    # Convert URL to proper playlist format for faster extraction
+    playlist_url = _convert_to_playlist_url(url)
+    print(f"DEBUG: Original URL: {url}")
+    print(f"DEBUG: Converted URL: {playlist_url}")
+
+    # Calculate playlist item range (1-indexed for yt-dlp)
+    start_item = offset + 1
+    end_item = offset + limit
+
+    ydl_opts: dict = {
+        "quiet": True,
+        "skip_download": True,
+        "playlist_items": f"{start_item}-{end_item}",  # Get specific range
+        "extract_flat": True,  # Fast extraction - only basic info
+    }
+
+    if cookie_file and Path(cookie_file).is_file():
+        ydl_opts["cookiefile"] = cookie_file
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(playlist_url, download=False)
+    except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError) as e:
+        raise Exception(f"yt-dlp error: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Network error: {str(e)}")
+
+    # Debug logging - using print for immediate console output
+    print(
+        f"DEBUG Chunk: playlist_url={playlist_url}, offset={offset}, limit={limit}",
+        flush=True,
+    )
+    print(f"DEBUG Info keys: {list(info.keys()) if info else 'None'}", flush=True)
+    print(
+        f"DEBUG Playlist count: {info.get('playlist_count') if info else 'N/A'}",
+        flush=True,
+    )
+
+    # Extract playlist metadata (from first request or reuse from client)
+    playlist_title = info.get("title", "Unknown Playlist")
+    playlist_uploader = info.get("uploader") or info.get("channel", "")
+    playlist_thumbnail = info.get("thumbnail", "")
+    total_entries = info.get("playlist_count") or 0
+
+    # Extract videos from this chunk
+    entries = info.get("entries") or []
+    print(f"DEBUG Entries count: {len(entries)}", flush=True)
+    if entries:
+        print(f"DEBUG First entry sample: {str(entries[0])[:200]}", flush=True)
+    videos: list[VideoResult] = []
+
+    # Process entries in parallel batches of 5
+    if entries:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def process_entry(entry: dict) -> VideoResult | None:
+            try:
+                return _extract_single_video(entry)
+            except Exception:
+                return None
+
+        # Process in parallel with max 5 workers
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_entry = {
+                executor.submit(process_entry, entry): entry for entry in entries
+            }
+
+            for future in as_completed(future_to_entry):
+                video = future.result()
+                if video:
+                    videos.append(video)
+
+    # Sort videos by original order (since parallel processing may mix order)
+    videos.sort(
+        key=lambda v: next((i for i, e in enumerate(entries) if e.get("id") == v.id), 0)
+    )
+
+    return {
+        "title": playlist_title,
+        "uploader": playlist_uploader,
+        "thumbnail": playlist_thumbnail,
+        "video_count": len(videos),
+        "total_count": total_entries,
+        "videos": videos,
+        "playlist_url": url,
+        "offset": offset,
+        "limit": limit,
+        "has_more": total_entries > end_item
+        if total_entries
+        else len(entries) == limit,
+    }
+
+
 def get_formats(url: str) -> QualityResponse:
     cookie_file = os.getenv("YTDLP_COOKIE_FILE", "")
 
@@ -219,6 +431,11 @@ def download(url: str, format_id: str, output_template: str) -> DownloadResponse
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             final_path = ydl.prepare_filename(info)
+        # Change .webm extension to .opus for audio-only formats
+        if final_path.endswith(".webm"):
+            new_path = final_path[:-5] + ".opus"
+            os.rename(final_path, new_path)
+            final_path = new_path
         return DownloadResponse(
             success=True, file_path=final_path, message="Downloaded successfully"
         )
@@ -299,6 +516,12 @@ def download_with_progress(
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
             file_path = ydl.prepare_filename(info)
+
+        # Change .webm extension to .opus for audio-only formats
+        if file_path.endswith(".webm"):
+            new_path = file_path[:-5] + ".opus"
+            os.rename(file_path, new_path)
+            file_path = new_path
 
         return DownloadResponse(
             success=True,

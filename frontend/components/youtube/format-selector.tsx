@@ -41,16 +41,16 @@ export function FormatSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-surface border-border max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl">
+      <DialogContent className="bg-surface border-border w-[calc(100vw-2rem)] sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-text-primary flex items-center gap-2">
+          <DialogTitle className="text-text-primary flex items-center gap-2 text-base sm:text-lg">
             <Music className="w-5 h-5 text-accent" />
             Select Audio Format
           </DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
-          <p className="text-text-secondary text-sm mb-4 line-clamp-2">{title}</p>
+          <p className="text-text-secondary text-xs sm:text-sm mb-4 line-clamp-2">{title}</p>
           
           {audioFormats.length === 0 ? (
             <div className="text-center py-8 text-text-muted">
@@ -66,7 +66,7 @@ export function FormatSelector({
               {audioFormats.map((format) => (
                 <div
                   key={format.format_id}
-                  className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                  className={`flex items-start sm:items-center space-x-2 sm:space-x-3 p-2 sm:p-3 rounded-lg border transition-colors ${
                     selectedFormat === format.format_id
                       ? 'border-accent bg-accent/10'
                       : 'border-border hover:border-accent/50'
@@ -75,22 +75,22 @@ export function FormatSelector({
                   <RadioGroupItem 
                     value={format.format_id} 
                     id={format.format_id}
-                    className="border-accent text-accent"
+                    className="border-accent text-accent mt-0.5 sm:mt-0"
                   />
                   <Label 
                     htmlFor={format.format_id}
                     className="flex-1 cursor-pointer"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium text-text-primary">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-0">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="font-medium text-text-primary text-sm">
                           {format.ext.toUpperCase()}
                         </span>
-                        <span className="text-text-secondary text-sm">
+                        <span className="text-text-secondary text-xs sm:text-sm">
                           {format.audio_codec}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-text-muted">
+                      <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-text-muted">
                         <span>{Math.round(format.abr)} kbps</span>
                         <span className="flex items-center gap-1">
                           <HardDrive className="w-3 h-3" />
@@ -104,18 +104,18 @@ export function FormatSelector({
             </RadioGroup>
           )}
 
-          <div className="flex justify-end gap-2 mt-6">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
             <Button 
               variant="outline" 
               onClick={onClose}
-              className="border-border text-text-secondary"
+              className="border-border text-text-secondary w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               onClick={handleDownload}
               disabled={!selectedFormat || isLoading || audioFormats.length === 0}
-              className="bg-accent hover:bg-accent-hover text-white"
+              className="bg-accent hover:bg-accent-hover text-white w-full sm:w-auto"
             >
               {isLoading ? 'Downloading...' : 'Download'}
             </Button>
