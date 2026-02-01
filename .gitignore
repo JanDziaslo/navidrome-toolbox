@@ -210,3 +210,4 @@ __marimo__/
 /cookies.txt
 cookies
 frontend/package-lock.json
+.idea
