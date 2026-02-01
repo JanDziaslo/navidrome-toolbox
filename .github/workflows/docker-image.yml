@@ -1,0 +1,77 @@
+name: Budowanko obrazów Docker
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64, linux/arm/v7]
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (ARM only)
+        if: contains(matrix.platform, 'arm')
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare environment variables
+        run: |
+          echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+          ARCH="${{ matrix.platform }}"
+          ARCH=${ARCH#linux/}
+          ARCH=${ARCH//\//-}
+          echo "ARCH=${ARCH}" >>${GITHUB_ENV}
+
+      - name: Build and push ${{ matrix.service }} image per-arch
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: ${{ matrix.platform }}
+          tags: ghcr.io/${{ env.REPO }}-${{ matrix.service }}:latest-${{ env.ARCH }}
+          cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform }}
+
+  manifest:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository name
+        run: echo "REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
+
+      - name: Create multi-arch manifest for ${{ matrix.service }}
+        run: |
+          repo="ghcr.io/${REPO}-${{ matrix.service }}"
+          docker buildx imagetools create -t "${repo}:latest" \
+            "${repo}:latest-amd64" \
+            "${repo}:latest-arm64" \
+            "${repo}:latest-arm-v7"

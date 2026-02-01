@@ -208,3 +208,5 @@ __marimo__/
 
 /node_modules/
 /cookies.txt
+cookies
+frontend/package-lock.json

@@ -1,6 +1,40 @@
 services:
   backend:
+    #build:
+      #context: ./backend
+      #dockerfile: Dockerfile
+    image: ghcr.io/Mord0reK/navidrome-toolbox-backend:latest
+    container_name: navidrome-toolbox-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
     environment:
       - YTDLP_COOKIE_FILE=/cookies/yt-cookies.txt
     volumes:
       - ./cookies/yt-cookies.txt:/cookies/yt-cookies.txt:ro
+      - ./downloads:/tmp
+    networks:
+      - navidrome-toolbox
+
+  frontend:
+    #build:
+      #context: ./frontend
+      #dockerfile: Dockerfile
+    image: ghcr.io/Mord0reK/navidrome-toolbox-frontend:latest
+    container_name: navidrome-toolbox-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - navidrome-toolbox
+
+networks:
+  navidrome-toolbox:
+    driver: bridge
+
+volumes:
+  downloads:
