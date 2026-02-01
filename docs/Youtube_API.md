@@ -9,7 +9,8 @@ Backend udostępnia REST API do wyszukiwania na YouTube, pobierania listy format
 
 | Metoda | Ścieżka                         | Opis                                                       |
 |--------|---------------------------------|------------------------------------------------------------|
-| GET    | `/api/youtube/query`           | Wyszukiwanie na YouTube po frazie.                        |
+| GET    | `/api/youtube/query`           | Wyszukiwanie na YouTube po frazie lub bezpośredni URL.     |
+| POST   | `/api/youtube/playlist`        | Informacje o playlistzie z paginacją.                      |
 | POST   | `/api/youtube/formats`         | Lista dostępnych formatów dla konkretnego wideo.          |
 | POST   | `/api/youtube/download`        | Jednorazowe pobranie pliku, odpowiedź po zakończeniu.     |
 | POST   | `/api/youtube/download/stream` | Strumień SSE z progressem i statusem pobierania. |
@@ -18,7 +19,9 @@ Backend udostępnia REST API do wyszukiwania na YouTube, pobierania listy format
 
 ## `GET /api/youtube/query`
 
- Wyszukiwanie filmów / utworów na YouTube.
+Wyszukiwanie filmów / utworów na YouTube lub pobieranie informacji o bezpośrednim URL.
+
+Jeśli parametr `q` zawiera URL YouTube (np. `https://www.youtube.com/watch?v=...` lub `https://youtu.be/...`), endpoint zwróci informacje o konkretnym wideo zamiast wyników wyszukiwania.
 
 ### Query params
 
@@ -58,9 +61,74 @@ GET /api/youtube/query?q=rick%20astley%20never%20gonna%20give%20you%20up&limit=2
       "url": "https://www.youtube.com/watch?v=drxI-0W4pII"
     }
   ],
-  "count": 2
+  "count": 2,
+  "is_direct_url": false
 }
 ```
+
+Pole `is_direct_url` wskazuje, czy żądanie dotyczyło bezpośredniego URL (true) czy wyszukiwania tekstowego (false).
+
+---
+
+## `POST /api/youtube/playlist`
+
+Zwraca informacje o playlistzie YouTube wraz z listą filmów. Obsługuje paginację dla dużych playlist.
+
+### Request body
+
+```json
+{
+  "url": "https://www.youtube.com/playlist?list=PLAYLIST_ID",
+  "offset": 0,
+  "limit": 10
+}
+```
+
+Pola:
+
+- `url` – pełny link do playlisty YouTube (wymagane)
+- `offset` – indeks pierwszego elementu do pobrania (domyślnie 0)
+- `limit` – liczba filmów do pobrania (1-50, domyślnie 10)
+
+### Response
+
+```json
+{
+  "title": "My Awesome Playlist",
+  "uploader": "Channel Name",
+  "thumbnail": "https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg",
+  "video_count": 150,
+  "total_count": 150,
+  "videos": [
+    {
+      "id": "dQw4w9WgXcQ",
+      "title": "Rick Astley - Never Gonna Give You Up",
+      "duration": 214,
+      "uploader": "Rick Astley",
+      "view_count": 1737639150,
+      "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    }
+  ],
+  "playlist_url": "https://www.youtube.com/playlist?list=PLAYLIST_ID",
+  "offset": 0,
+  "limit": 10,
+  "has_more": true
+}
+```
+
+Pola:
+
+- `title` – tytuł playlisty
+- `uploader` – nazwa kanału
+- `thumbnail` – URL miniaturki playlisty
+- `video_count` – liczba filmów w aktualnej odpowiedzi
+- `total_count` – całkowita liczba filmów w playliście
+- `videos` – lista filmów (struktura jak w `/query`)
+- `playlist_url` – URL playlisty
+- `offset` – aktualny offset
+- `limit` – aktualny limit
+- `has_more` – czy są więcej filmy do pobrania (true/false)
 
 ---
 
