@@ -13,9 +13,67 @@ from app.schemas.youtube import (
 )
 
 
+def _is_youtube_url(query: str) -> bool:
+    """
+    Check if the query is a YouTube URL.
+    Supports: youtube.com/watch?v=..., youtu.be/..., youtube.com/shorts/...
+    """
+    import re
+
+    youtube_pattern = (
+        r"^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)"
+    )
+    return bool(re.match(youtube_pattern, query))
+
+
+def _extract_single_video(entry: dict) -> VideoResult | None:
+    """
+    Extract a single video result from a yt-dlp entry.
+    """
+    if not entry:
+        return None
+
+    video_id = entry.get("id")
+    if not video_id:
+        return None
+
+    uploader = entry.get("artist") or entry.get("uploader") or entry.get("channel", "")
+
+    # yt-dlp w extract_flat często nie daje thumbnaila, więc budujemy go sami
+    thumbnail = (
+        entry.get("thumbnail") or f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
+    )
+
+    url = entry.get(
+        "webpage_url",
+        entry.get("url", f"https://www.youtube.com/watch?v={video_id}"),
+    )
+
+    view_count = entry.get("view_count", 0) or 0
+    duration = entry.get("duration", 0) or 0
+
+    return VideoResult(
+        id=video_id,
+        title=entry.get("title", ""),
+        duration=duration,
+        uploader=uploader,
+        view_count=view_count,
+        thumbnail=thumbnail,
+        url=url,
+    )
+
+
 def search_youtube(
     query: str, limit: int, music_only: bool = True
-) -> list[VideoResult]:
+) -> tuple[list[VideoResult], bool]:
+    """
+    Search YouTube or extract info from a direct URL.
+
+    Returns:
+        tuple: (results, is_direct_url)
+            - results: list of VideoResult
+            - is_direct_url: True if query was a direct YouTube URL, False if it was a search
+    """
     if not 1 <= limit <= 50:
         raise ValueError("Limit must be between 1 and 50")
 
@@ -24,67 +82,57 @@ def search_youtube(
     ydl_opts: dict = {
         "quiet": True,
         "noplaylist": True,
-        "extract_flat": True,
         "skip_download": True,
     }
 
     if cookie_file and Path(cookie_file).is_file():
-        # yt-dlp Python API – odpowiednik --cookies FILE
-        ydl_opts["cookiefile"] = cookie_file  # [web:78]
+        ydl_opts["cookiefile"] = cookie_file
+
+    is_direct_url = _is_youtube_url(query)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            search_suffix = " topic audio" if music_only else ""
-            search_term = f"ytsearch{limit}:{query}{search_suffix}"
-            info_dict = ydl.extract_info(search_term, download=False)
+            if is_direct_url:
+                # Pobieranie informacji o filmie bezpośrednio z URL'a
+                ydl_opts["extract_flat"] = False
+                info_dict = ydl.extract_info(query, download=False)
+            else:
+                # Wyszukiwanie po frażie
+                ydl_opts["extract_flat"] = True
+                search_suffix = " topic audio" if music_only else ""
+                search_term = f"ytsearch{limit}:{query}{search_suffix}"
+                info_dict = ydl.extract_info(search_term, download=False)
 
     except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError) as e:
         raise Exception(f"yt-dlp error: {str(e)}")
-
     except Exception as e:
         raise Exception(f"Network error: {str(e)}")
 
-    entries = info_dict.get("entries") or []
     results: list[VideoResult] = []
 
-    for entry in entries:
-        if not entry:
-            continue
+    if is_direct_url:
+        # Jeśli to bezpośredni URL, może to być playlist
+        if "entries" in info_dict:
+            # Playlist lub seria filmów
+            entries = info_dict.get("entries") or []
+            for entry in entries[:limit]:  # Ograniczyć do limit
+                video = _extract_single_video(entry)
+                if video:
+                    results.append(video)
+        else:
+            # Pojedynczy film
+            video = _extract_single_video(info_dict)
+            if video:
+                results.append(video)
+    else:
+        # Wyniki wyszukiwania
+        entries = info_dict.get("entries") or []
+        for entry in entries:
+            video = _extract_single_video(entry)
+            if video:
+                results.append(video)
 
-        video_id = entry.get("id")
-        if not video_id:
-            continue
-
-        uploader = (
-            entry.get("artist") or entry.get("uploader") or entry.get("channel", "")
-        )
-
-        # yt-dlp w extract_flat często nie daje thumbnaila, więc budujemy go sami
-        thumbnail = (
-            entry.get("thumbnail") or f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
-        )  # [web:107]
-
-        url = entry.get(
-            "webpage_url",
-            entry.get("url", f"https://www.youtube.com/watch?v={video_id}"),
-        )
-
-        view_count = entry.get("view_count", 0) or 0
-        duration = entry.get("duration", 0) or 0
-
-        results.append(
-            VideoResult(
-                id=video_id,
-                title=entry.get("title", ""),
-                duration=duration,
-                uploader=uploader,
-                view_count=view_count,
-                thumbnail=thumbnail,
-                url=url,
-            )
-        )
-
-    return results
+    return results, is_direct_url
 
 
 def get_formats(url: str) -> QualityResponse:

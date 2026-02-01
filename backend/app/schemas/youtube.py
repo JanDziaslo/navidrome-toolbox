@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VideoResult(BaseModel):
@@ -14,6 +14,10 @@ class VideoResult(BaseModel):
 class YouTubeSearchResponse(BaseModel):
     results: list[VideoResult]
     count: int
+    is_direct_url: bool = Field(
+        default=False,
+        description="Whether the search was performed on a direct YouTube URL",
+    )
 
 
 class QualityRequest(BaseModel):
@@ -37,11 +41,12 @@ class QualityResponse(BaseModel):
     title: str
     formats: list[FormatInfo]
 
-    
+
 class DownloadRequest(BaseModel):
     url: str
     format_id: str
     output_template: str = "%(artist, uploader)s - %(title, track)s.%(ext)s"
+
 
 class DownloadResponse(BaseModel):
     success: bool

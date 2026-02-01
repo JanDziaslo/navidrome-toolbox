@@ -33,10 +33,33 @@ export default function YouTubeDownloaderPage() {
   const [isFormatDialogOpen, setIsFormatDialogOpen] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
 
-  const handleSearch = async (query: string, limit: number, musicOnly: boolean) => {
-    clear();
-    // Don't clear downloads - they should remain visible
-    await search(query, limit, musicOnly);
+  const handleSearch = async (query: string, limit: number, musicOnly: boolean, isUrl = false) => {
+    const searchResults = await search(query, limit, musicOnly);
+
+    // If search returned at least 1 result and it's a direct URL, auto-open format selector
+    if (isUrl && searchResults.length >= 1) {
+      const video = searchResults[0];
+      setSelectedVideo(video);
+      setIsLoadingFormats(true);
+      setIsFormatDialogOpen(true);
+
+      try {
+        const response = await fetch('/api/youtube/formats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: video.url }),
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch formats');
+        const data = await response.json();
+        setFormats(data.formats);
+      } catch {
+        toast.error('Failed to load formats');
+        setIsFormatDialogOpen(false);
+      } finally {
+        setIsLoadingFormats(false);
+      }
+    }
   };
 
   const handleSelectVideo = async (video: YouTubeSearchResult) => {
@@ -156,19 +179,21 @@ export default function YouTubeDownloaderPage() {
       <div className="flex gap-8 items-start">
         {/* Left Column - Search and Results */}
         <div className="flex-1 space-y-8 max-w-4xl">
-          {/* Step 1: Search */}
+          {/* Step 1: Search or Paste URL */}
           <section className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-medium">
                 1
               </div>
-              <h2 className="text-lg font-semibold text-text-primary">Wyszukaj utwór.</h2>
+              <h2 className="text-lg font-semibold text-text-primary">
+                Wklej link lub wyszukaj
+              </h2>
             </div>
             <SearchForm onSearch={handleSearch} isLoading={isSearching} />
           </section>
 
-          {/* Step 2: Results */}
-          {results.length > 0 && (
+          {/* Step 2: Results (only shown for searches, not URLs) */}
+          {results.length > 1 && (
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-medium">
@@ -178,8 +203,8 @@ export default function YouTubeDownloaderPage() {
                   Wybierz utwór ({results.length} wyników)
                 </h2>
               </div>
-              <SearchResults 
-                results={results} 
+              <SearchResults
+                results={results}
                 onSelect={handleSelectVideo}
               />
             </section>

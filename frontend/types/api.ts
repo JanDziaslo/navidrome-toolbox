@@ -18,6 +18,7 @@ export interface YouTubeSearchResult {
 export interface YouTubeSearchResponse {
   results: YouTubeSearchResult[];
   count: number;
+  is_direct_url?: boolean;
 }
 
 export interface VideoFormat {

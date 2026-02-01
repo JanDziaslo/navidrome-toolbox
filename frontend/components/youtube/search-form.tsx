@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, SlidersHorizontal, Music } from 'lucide-react';
+import { Search, SlidersHorizontal, Music, Link } from 'lucide-react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+
+const YOUTUBE_URL_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w-]+/;
+
 interface SearchFormProps {
-  onSearch: (query: string, limit: number, musicOnly: boolean) => void;
+  onSearch: (query: string, limit: number, musicOnly: boolean, isUrl?: boolean) => void;
   isLoading: boolean;
 }
 
@@ -26,6 +29,7 @@ export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
   const [limit, setLimit] = useState(10);
   const [musicOnly, setMusicOnly] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isUrlDetected, setIsUrlDetected] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -80,12 +84,19 @@ export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     springValue.set(limit);
   }, [limit, springValue]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      onSearch(query.trim(), limit, musicOnly);
-    }
-  };
+   const handleSubmit = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (query.trim()) {
+       const trimmedQuery = query.trim();
+       const isUrl = YOUTUBE_URL_REGEX.test(trimmedQuery);
+       onSearch(trimmedQuery, limit, musicOnly, isUrl);
+       // Don't clear the query field
+     }
+   };
+
+  useEffect(() => {
+    setIsUrlDetected(YOUTUBE_URL_REGEX.test(query));
+  }, [query]);
 
   const handleSliderChange = (clientX: number) => {
     if (!sliderRef.current) return;
@@ -143,12 +154,18 @@ export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          {isUrlDetected ? (
+            <Link className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
+          ) : (
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          )}
           <Input
-            placeholder="Szukaj na YouTube..."
+            placeholder={isUrlDetected ? "Wklej link YouTube..." : "Szukaj na YouTube..."}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-10 bg-surface border-border text-text-primary placeholder:text-text-muted"
+            className={`pl-10 bg-surface text-text-primary placeholder:text-text-muted ${
+              isUrlDetected ? 'border-accent/50 focus:border-accent' : 'border-border'
+            }`}
           />
         </div>
         

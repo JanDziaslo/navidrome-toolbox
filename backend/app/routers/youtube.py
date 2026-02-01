@@ -22,13 +22,15 @@ router = APIRouter()
 
 @router.get("/query", response_model=YouTubeSearchResponse)
 async def search_videos(
-    q: str = Query(..., description="Search query"),
+    q: str = Query(..., description="Search query or YouTube URL"),
     limit: int = Query(10, ge=1, le=50, description="Number of results (1-50)"),
     music_only: bool = Query(True, description="Prefer YouTube Music / topic results"),
 ):
     try:
-        results = search_youtube(q, limit, music_only)
-        return YouTubeSearchResponse(results=results, count=len(results))
+        results, is_direct_url = search_youtube(q, limit, music_only)
+        return YouTubeSearchResponse(
+            results=results, count=len(results), is_direct_url=is_direct_url
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
