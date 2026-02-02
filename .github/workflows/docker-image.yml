@@ -1,5 +1,10 @@
 name: Budowanko obrazów Docker
 
+# Anuluj stare buildy przy nowym pushu
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ "main" ]
@@ -9,7 +14,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -52,13 +57,17 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           platforms: ${{ matrix.platform }}
           tags: ghcr.io/${{ env.REPO }}-${{ matrix.service }}:latest-${{ env.ARCH }}
-          cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-from: |
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}-main
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}-pr
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform }}-${{ github.ref_name == 'main' && 'main' || 'pr' }}
 
   manifest:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request'
+    timeout-minutes: 5
     
     permissions:
       contents: read
