@@ -2,7 +2,7 @@ from pathlib import Path
 import tomllib  # wbudowane w Pythonie 3.11+
 
 def get_version() -> str:
-    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    pyproject_path = Path(__file__).resolve().parent / "pyproject.toml"
     data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     return data["project"]["version"]
 
