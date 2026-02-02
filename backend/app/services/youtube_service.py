@@ -406,14 +406,16 @@ def get_formats(url: str) -> QualityResponse:
 
 
 def download(url: str, format_id: str, output_template: str) -> DownloadResponse:
-    tmp_dir = tempfile.mkdtemp()
+    download_dir = "/media"
+    os.makedirs(download_dir, exist_ok=True)
+
     if ".." in output_template or "/" in output_template or "\\" in output_template:
         return DownloadResponse(
             success=False,
             file_path="",
             message="Invalid filename: path traversal not allowed",
         )
-    outtmpl = os.path.join(tmp_dir, output_template)
+    outtmpl = os.path.join(download_dir, output_template)
 
     ydl_opts: dict = {
         "quiet": True,
@@ -457,14 +459,16 @@ def download_with_progress(
     """
     cookie_file = os.getenv("YTDLP_COOKIE_FILE", "")
 
-    tmp_dir = tempfile.mkdtemp(prefix="yt_")
+    download_dir = "/media"
+    os.makedirs(download_dir, exist_ok=True)
+
     if ".." in output_template or "/" in output_template or "\\" in output_template:
         return DownloadResponse(
             success=False,
             file_path="",
             message="Invalid filename: path traversal not allowed",
         )
-    outtmpl = os.path.join(tmp_dir, output_template)
+    outtmpl = os.path.join(download_dir, output_template)
 
     def build_opts() -> dict:
         opts: dict = {

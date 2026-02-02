@@ -1,6 +1,6 @@
 [project]
 name = "navidrome-toolbox-api"
-version = "0.1.0"
+version = "0.2.0"
 description = "Navidrome toolbox backend (FastAPI + yt-dlp + file management)"
 requires-python = ">=3.11"
 readme = "README.md"

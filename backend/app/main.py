@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import health, youtube
+from app.routers import health, youtube, files
 
 app = FastAPI(
     title="Navidrome Toolbox API",
@@ -8,3 +8,4 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
+app.include_router(files.router, prefix="/api/files", tags=["files"])

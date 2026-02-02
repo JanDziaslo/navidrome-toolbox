@@ -1,5 +1,10 @@
 name: Budowanko obrazów Docker
 
+# Anuluj stare buildy przy nowym pushu
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ "main" ]
@@ -8,8 +13,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
@@ -17,14 +22,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux/amd64, linux/arm64]
-        service: [backend, frontend]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            service: backend
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            service: frontend
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            service: backend
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            service: frontend
+            
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU (ARM only)
-        if: contains(matrix.platform, 'arm')
-        uses: docker/setup-qemu-action@v3
+      # QEMU USUNIĘTE - natywne ARM64 nie potrzebuje emulacji
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -52,13 +67,17 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           platforms: ${{ matrix.platform }}
           tags: ghcr.io/${{ env.REPO }}-${{ matrix.service }}:latest-${{ env.ARCH }}
-          cache-from: type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-from: |
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}-main
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}-pr
+            type=gha,scope=${{ matrix.service }}-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.platform }}-${{ github.ref_name == 'main' && 'main' || 'pr' }}
 
   manifest:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request'
+    timeout-minutes: 5
     
     permissions:
       contents: read
