@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -22,14 +22,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [linux/amd64, linux/arm64]
-        service: [backend, frontend]
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            service: backend
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            service: frontend
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            service: backend
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            service: frontend
+            
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU (ARM only)
-        if: contains(matrix.platform, 'arm')
-        uses: docker/setup-qemu-action@v3
+      # QEMU USUNIĘTE - natywne ARM64 nie potrzebuje emulacji
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
